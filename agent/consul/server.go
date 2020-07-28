@@ -238,9 +238,9 @@ type Server struct {
 	rpcConnLimiter connlimit.Limiter
 
 	// Listener is used to listen for incoming connections
-	Listener     net.Listener
-	GRPCListener *grpcListener
-	rpcServer    *rpc.Server
+	Listener    net.Listener
+	grpcHandler *grpcHandler
+	rpcServer   *rpc.Server
 
 	// insecureRPCServer is a RPC server that is configure with
 	// IncomingInsecureRPCConfig to allow clients to call AutoEncrypt.Sign
@@ -435,7 +435,7 @@ func NewServerWithOptions(config *Config, options ...ConsulOption) (*Server, err
 		shutdownCh:              shutdownCh,
 		leaderRoutineManager:    NewLeaderRoutineManager(logger),
 		aclAuthMethodValidators: authmethod.NewCache(),
-		// TODO: set GRPCListener
+		// TODO: set grpcHandler
 	}
 
 	if s.config.ConnectMeshGatewayWANFederationEnabled {
@@ -582,14 +582,6 @@ func NewServerWithOptions(config *Config, options ...ConsulOption) (*Server, err
 		return nil, fmt.Errorf("Failed to start LAN Serf: %v", err)
 	}
 	go s.lanEventHandler()
-
-	if s.config.GRPCEnabled {
-		// Initialize the GRPC listener.
-		if err := s.setupGRPC(); err != nil {
-			s.Shutdown()
-			return nil, fmt.Errorf("Failed to start GRPC layer: %v", err)
-		}
-	}
 
 	// Start the flooders after the LAN event handler is wired up.
 	s.floodSegments(config)
@@ -966,10 +958,6 @@ func (s *Server) Shutdown() error {
 
 	if s.Listener != nil {
 		s.Listener.Close()
-	}
-
-	if s.GRPCListener != nil {
-		s.GRPCListener.Close()
 	}
 
 	// Close the connection pool
