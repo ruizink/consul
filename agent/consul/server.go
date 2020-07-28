@@ -314,32 +314,12 @@ type Server struct {
 	EnterpriseServer
 }
 
-// NewServer is only used to help setting up a server for testing. Normal code
-// exercises NewServerLogger.
-func NewServer(config *Config) (*Server, error) {
-	c, err := tlsutil.NewConfigurator(config.ToTLSUtilConfig(), nil)
-	if err != nil {
-		return nil, err
-	}
-	return NewServerLogger(config, nil, new(token.Store), c)
-}
-
-// NewServerLogger is used to construct a new Consul server from the
-// configuration, potentially returning an error
-func NewServerLogger(config *Config, logger hclog.InterceptLogger, tokens *token.Store, tlsConfigurator *tlsutil.Configurator) (*Server, error) {
-	return NewServerWithOptions(config,
-		WithLogger(logger),
-		WithTokenStore(tokens),
-		WithTLSConfigurator(tlsConfigurator))
-}
-
 // NewServerWithOptions is used to construct a new Consul server from the configuration
 // and extra options, potentially returning an error
 func NewServerWithOptions(config *Config, options ...ConsulOption) (*Server, error) {
 	flat := flattenConsulOptions(options)
 
 	logger := flat.logger
-	tokens := flat.tokens
 	tlsConfigurator := flat.tlsConfigurator
 	connPool := flat.connPool
 
@@ -415,7 +395,7 @@ func NewServerWithOptions(config *Config, options ...ConsulOption) (*Server, err
 	// Create server.
 	s := &Server{
 		config:                  config,
-		tokens:                  tokens,
+		tokens:                  flat.tokens,
 		connPool:                connPool,
 		eventChLAN:              make(chan serf.Event, serfEventChSize),
 		eventChWAN:              make(chan serf.Event, serfEventChSize),
